@@ -162,7 +162,7 @@ function submit() {
                         const resultElement = document.createElement('div');
                         resultElement.className = 'bg-gray-50 p-4 rounded-md';
                         resultElement.innerHTML = `
-                            <h3 class="font-semibold text-lg mb-2">${measureDisplayName}</h3>
+                            <h3 class="font-semibold text-lg mb-2">${measureDisplayName}: ${nvalue}</h3>
                             <p><span class="font-medium">Z-Score:</span> ${zs.toFixed(2)}</p>
                             <p><span class="font-medium">Percentile:</span> ${(ptile * 100).toFixed(2)}%</p>
                         `;
