@@ -18,7 +18,7 @@
             <p class="font-semibold mb-1">Reference data</p>
             <p>The pooled reference spans ages 20&ndash;83.7 years and heights 1.17&ndash;2.08 m in men,
                and ages 20&ndash;83.1 years and heights 1.24&ndash;1.98 m in women.
-               Results for combinations outside these ranges are extrapolations of the reference models.</p>
+               Z-scores and percentiles are provided only within this coverage (age rounded to full years, 20&ndash;83).</p>
         </div>
         
         <div class="bg-white shadow-md rounded-lg p-6 mb-8">
@@ -26,18 +26,19 @@
             <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div>
                     <label for="age" class="block text-sm font-medium text-gray-700 mb-1">Age (years)</label>
-                    <input type="number" id="age" name="age" min="0" max="120" required class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <input type="number" id="age" name="age" min="20" max="83" required class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
                 </div>
                 <div>
                     <label for="sex" class="block text-sm font-medium text-gray-700 mb-1">Sex</label>
-                    <select name="sex" id="sex" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <select name="sex" id="sex" onchange="updateHeightLimits()" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
                         <option value="m">Male</option>
                         <option value="f">Female</option>
                     </select>
                 </div>
                 <div>
                     <label for="height" class="block text-sm font-medium text-gray-700 mb-1">Height (Meters)</label>
-                    <input type="number" id="height" name="height" min="0" max="3" step="0.01" required class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <input type="number" id="height" name="height" min="1.17" max="2.08" step="0.01" required class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <p id="height-hint" class="text-xs text-gray-500 mt-1"></p>
                 </div>
             </div>
         </div>
@@ -74,11 +75,26 @@
 </html>
 
 <script>
-// sex-specific age (years) and height (m) coverage of the pooled reference data the models were fitted on
-const REFERENCE_RANGE = {
-    m: { age: [20, 83.7], height: [1.17, 2.08] },
-    f: { age: [20, 83.1], height: [1.24, 1.98] },
+// sex-specific ranges covered by the reference tables in data-aorta/ (see data-aorta/reference_range.json):
+// integer ages and 1 cm height steps inside the coverage of the pooled reference data
+// (men: ages 20-83.7 y, heights 1.17-2.08 m; women: ages 20-83.1 y, heights 1.24-1.98 m).
+// Keep in sync with the "Reference data" box above.
+const TABLE_RANGE = {
+    m: { age: [20, 83], height: [1.17, 2.08] },
+    f: { age: [20, 83], height: [1.24, 1.98] },
 };
+
+// restrict the height input to the selected sex's range
+function updateHeightLimits() {
+    const sex = document.getElementById('sex').value;
+    const range = TABLE_RANGE[sex].height;
+    const heightInput = document.getElementById('height');
+    heightInput.min = range[0].toFixed(2);
+    heightInput.max = range[1].toFixed(2);
+    document.getElementById('height-hint').textContent =
+        `${range[0].toFixed(2)}–${range[1].toFixed(2)} m for ${sex === 'm' ? 'men' : 'women'}`;
+}
+updateHeightLimits();
 
 // add a new measurement input group
 function addInput() {
@@ -107,12 +123,15 @@ function submit() {
         alert("Age, sex, and height must be provided.");
         return;
     }
-    if (isNaN(age) || age < 20 || age > 83) {
-        alert("Age must be between 20 and 83 inclusive.");
+    // inputs are limited to the range covered by the reference tables of the selected sex
+    const range = TABLE_RANGE[sex];
+    const sexLabel = sex === 'm' ? 'men' : 'women';
+    if (isNaN(age) || age < range.age[0] || age > range.age[1]) {
+        alert(`Age must be between ${range.age[0]} and ${range.age[1]} inclusive.`);
         return;
     }
-    if (isNaN(height) || height < 1.40 || height > 2.08) {
-        alert("Height must be between 1.40 and 2.08 meters inclusive.");
+    if (isNaN(Number(height)) || Number(height) < range.height[0] || Number(height) > range.height[1]) {
+        alert(`Height must be between ${range.height[0].toFixed(2)} and ${range.height[1].toFixed(2)} meters inclusive for ${sexLabel}.`);
         return;
     }
     // unclear to me (robintibor@gmail.com) why these measurements are stored, seem not used?
@@ -141,22 +160,6 @@ function submit() {
         encoding: 'UTF-8',
         complete: function(results) {
             const data = results.data;
-
-            // warn once if the entered demographics lie outside the reference data for this sex
-            const ref = REFERENCE_RANGE[sex];
-            const outside = [];
-            if (age < ref.age[0] || age > ref.age[1]) {
-                outside.push(`age ${age} years (reference: ${ref.age[0]}–${ref.age[1]} years)`);
-            }
-            if (Number(height) < ref.height[0] || Number(height) > ref.height[1]) {
-                outside.push(`height ${height} m (reference: ${ref.height[0].toFixed(2)}–${ref.height[1].toFixed(2)} m)`);
-            }
-            if (outside.length > 0) {
-                const outsideElement = document.createElement('div');
-                outsideElement.className = 'bg-amber-50 border border-amber-200 p-4 rounded-md text-amber-800 text-sm';
-                outsideElement.textContent = `Outside reference data: ${outside.join('; ')}. Results are extrapolated.`;
-                document.getElementById('results').appendChild(outsideElement);
-            }
             
             const measurementInputs = document.querySelectorAll('.measurement-input-group');
             measurementInputs.forEach(input => {
@@ -172,7 +175,8 @@ function submit() {
                         entry.Structure === "" &&
                         entry.Sex === (sex === 'm' ? 'male' : 'female') &&
                         Number(entry.Age) === age &&
-                        Math.abs(Number(entry.Height) - Number(height)) < 0.01
+                        // Height column is written by R with up to 15 significant digits (e.g. "1.2"), compare on 2 decimals
+                        Number(entry.Height).toFixed(2) === height
                     );
 
                     if (matchingEntry) {
