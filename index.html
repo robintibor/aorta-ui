@@ -13,6 +13,13 @@
 <body class="bg-gray-100 min-h-screen font-sans">
     <div class="container mx-auto px-4 py-8">
         <h1 class="text-3xl font-bold mb-8 text-center text-gray-800">Aorta Analysis Tool</h1>
+
+        <div class="bg-blue-50 border border-blue-200 text-blue-900 rounded-lg p-4 mb-8 text-sm">
+            <p class="font-semibold mb-1">Reference data</p>
+            <p>The pooled reference spans ages 20&ndash;83.7 years and heights 1.17&ndash;2.08 m in men,
+               and ages 20&ndash;83.1 years and heights 1.24&ndash;1.98 m in women.
+               Results for combinations outside these ranges are extrapolations of the reference models.</p>
+        </div>
         
         <div class="bg-white shadow-md rounded-lg p-6 mb-8">
             <h2 class="text-xl font-semibold mb-4 text-gray-700">Demographics</h2>
@@ -67,6 +74,12 @@
 </html>
 
 <script>
+// sex-specific age (years) and height (m) coverage of the pooled reference data the models were fitted on
+const REFERENCE_RANGE = {
+    m: { age: [20, 83.7], height: [1.17, 2.08] },
+    f: { age: [20, 83.1], height: [1.24, 1.98] },
+};
+
 // add a new measurement input group
 function addInput() {
     const template = document.getElementById('measurement-input-template');
@@ -128,6 +141,22 @@ function submit() {
         encoding: 'UTF-8',
         complete: function(results) {
             const data = results.data;
+
+            // warn once if the entered demographics lie outside the reference data for this sex
+            const ref = REFERENCE_RANGE[sex];
+            const outside = [];
+            if (age < ref.age[0] || age > ref.age[1]) {
+                outside.push(`age ${age} years (reference: ${ref.age[0]}–${ref.age[1]} years)`);
+            }
+            if (Number(height) < ref.height[0] || Number(height) > ref.height[1]) {
+                outside.push(`height ${height} m (reference: ${ref.height[0].toFixed(2)}–${ref.height[1].toFixed(2)} m)`);
+            }
+            if (outside.length > 0) {
+                const outsideElement = document.createElement('div');
+                outsideElement.className = 'bg-amber-50 border border-amber-200 p-4 rounded-md text-amber-800 text-sm';
+                outsideElement.textContent = `Outside reference data: ${outside.join('; ')}. Results are extrapolated.`;
+                document.getElementById('results').appendChild(outsideElement);
+            }
             
             const measurementInputs = document.querySelectorAll('.measurement-input-group');
             measurementInputs.forEach(input => {
